@@ -4,7 +4,6 @@ import time
 
 problems = []
 solutions = []
-prevSol0 = ""
 
 time1 = time.time()
 
@@ -12,14 +11,24 @@ def onNewClient(client, addr):
     newData = client.recv(1024).strip()
     if newData == b"WRK":
         print(f"Work request: {addr[0]}")
-        try:
-            currentProblem = problems.pop(0)
-            client.send(currentProblem.encode("utf-8"))
-            solutions.append(client.recv(1024).strip().decode("utf-8"))
-            print(f"New solution: {solutions[-1]}")
-        except:
-            currentProblem = ""
-            client.send(currentProblem.encode("utf-8"))
+        while True:
+            try:
+                currentProblem = problems.pop(0)
+                client.send(currentProblem.encode("utf-8"))
+                data = client.recv(1024).strip().decode("utf-8")
+                if data == "ERR":
+                    client.send(b"ACK")
+                    problems.append(client.recv(1024).strip().decode("utf-8"))
+                    client.close()
+                    return
+                else:
+                    solutions.append(data)
+                    print(f"New solution: {solutions[-1]}")
+                    client.close()
+                    return
+            except:
+                currentProblem = ""
+                client.send(currentProblem.encode("utf-8"))
         
     elif newData == b"REQ":
         print(f"Request: {addr[0]}")
@@ -35,6 +44,8 @@ def onNewClient(client, addr):
                 client.send(i.split(":")[0].encode("utf-8"))
                 print(f"Sent solution: {i}")
                 solutions.remove(i)
+                client.close()
+                return
 
 HOST = "localhost"
 PORT = 42790
